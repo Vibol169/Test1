@@ -3,26 +3,36 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Echo Demo</title>
+  <title>Popup Form App</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main>
-    <h1>Echo Demo</h1>
-    <p class="sub">GitHub Pages → Worker → Apps Script</p>
 
-    <form id="echoForm">
-      <label>Name
-        <input type="text" id="name" placeholder="Ada" required />
-      </label>
-      <label>Message
-        <input type="text" id="message" placeholder="Hello, world!" required />
-      </label>
-      <button type="submit">Send</button>
-    </form>
+  <h1>My App Home Screen</h1>
+  <p>Welcome to the app.</p>
+  <button id="openPopupBtn">Open Popup Form</button>
 
-    <pre id="output">Awaiting request…</pre>
-  </main>
+  <!-- THE POPUP MODAL -->
+  <!-- We add the 'hidden' class by default so it doesn't show on load -->
+  <div id="popupOverlay" class="hidden">
+    <div class="modal-content">
+      <button id="closePopupBtn" class="close-btn">&times;</button>
+      <h2>Fill the Form</h2>
+      
+      <form id="myForm">
+        <label>Name
+          <input type="text" id="name" placeholder="Ada" />
+        </label>
+        <label>Message
+          <input type="text" id="message" placeholder="Hello!" />
+        </label>
+        <button type="submit" id="submitBtn">Submit</button>
+      </form>
+      
+      <pre id="output"></pre>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

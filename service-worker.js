@@ -6,6 +6,7 @@ const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
+  './gas-api.js', 
   './app.js',
   './manifest.json',
   './icon-192.png',

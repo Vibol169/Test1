@@ -1,4 +1,4 @@
-const API_URL = "https://icy-band-de97.ppap-tec-2022.workers.dev";
+const API_URL = "https://icy-band-de97.ppap-tec-2022.workers.dev/";
 
 const form = document.getElementById("echoForm");
 const output = document.getElementById("output");

@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Echo Demo App</title>
   
-  <!-- PWA Configuration -->
+  <!-- 1. PWA Configuration -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0f172a" />
   
-  <!-- Styles -->
+  <!-- 2. Styles -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -19,19 +19,22 @@
     <h1>Echo Demo</h1>
     <p class="sub">GitHub Pages → Worker → Apps Script</p>
     
-    <!-- Button to trigger the form popup -->
-    <button id="openPopupBtn">Open Form</button>
+    <!-- Button to trigger the popup form -->
+    <button id="openPopupBtn" style="width: 100%;">Open Form</button>
   </main>
 
-  <!-- The Popup Form (Modal) -->
-  <!-- 'hidden' class is applied by default -->
+  <!-- THE POPUP MODAL -->
+  <!-- The 'hidden' class keeps it invisible by default -->
   <div id="popupOverlay" class="hidden">
     <div class="modal-content">
+      
+      <!-- Close Button (X) -->
       <button id="closePopupBtn" class="close-btn" type="button">&times;</button>
       
       <h2>Fill the Form</h2>
       <p class="sub" style="margin-bottom: 1rem; font-size: 0.85rem;">Your progress is saved automatically.</p>
       
+      <!-- Your Form -->
       <form id="echoForm">
         <label>Name
           <input type="text" id="name" placeholder="Ada" required />
@@ -42,23 +45,25 @@
         <button type="submit" id="submitBtn">Send</button>
       </form>
       
-      <!-- Output area for the JSON response -->
+      <!-- Output Area for JSON Response -->
       <pre id="output">Awaiting request…</pre>
+      
     </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- 3. Your Application Logic -->
   <script src="app.js"></script>
   
-  <!-- Register Service Worker -->
+  <!-- 4. Service Worker Registration for PWA (Offline support & instant load) -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js')
-          .then(reg => console.log('Service Worker registered!', reg))
+          .then(reg => console.log('Service Worker registered successfully!', reg))
           .catch(err => console.log('Service Worker registration failed:', err));
       });
     }
   </script>
+  
 </body>
 </html>

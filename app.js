@@ -1,13 +1,18 @@
-// Your actual Worker URL
+// Your exact Worker URL
 const API_URL = "https://icy-band-de97.ppap-tec-2022.workers.dev/";
 
+// Main elements
 const form = document.getElementById("echoForm");
 const nameInput = document.getElementById("name");
 const messageInput = document.getElementById("message");
 const output = document.getElementById("output");
 
-// 1. RESTORE DATA ON LOAD
-// When the app opens, check if there is a saved draft and fill the inputs
+// Popup elements
+const openPopupBtn = document.getElementById("openPopupBtn");
+const closePopupBtn = document.getElementById("closePopupBtn");
+const popupOverlay = document.getElementById("popupOverlay");
+
+// 1. RESTORE STATE ON LOAD
 window.addEventListener('DOMContentLoaded', () => {
   const savedDraft = localStorage.getItem('echoFormDraft');
   
@@ -15,25 +20,44 @@ window.addEventListener('DOMContentLoaded', () => {
     const data = JSON.parse(savedDraft);
     nameInput.value = data.name || '';
     messageInput.value = data.message || '';
-    console.log("Draft restored!");
+
+    // If the popup was open when they left, open it again!
+    if (data.isPopupOpen && popupOverlay) {
+      popupOverlay.classList.remove("hidden");
+    }
   }
 });
 
-// 2. AUTO-SAVE AS THE USER TYPES
-// This function saves the current input values to local storage
+// 2. SAVE STATE FUNCTION
 function saveDraft() {
   const draftData = {
     name: nameInput.value,
-    message: messageInput.value
+    message: messageInput.value,
+    isPopupOpen: popupOverlay ? !popupOverlay.classList.contains("hidden") : false
   };
   localStorage.setItem('echoFormDraft', JSON.stringify(draftData));
 }
 
-// Attach the save function to the input fields
+// Auto-save as the user types
 nameInput.addEventListener('input', saveDraft);
 messageInput.addEventListener('input', saveDraft);
 
-// 3. HANDLE SUBMISSION
+// 3. POPUP OPEN/CLOSE LOGIC
+if (openPopupBtn) {
+  openPopupBtn.addEventListener("click", () => {
+    popupOverlay.classList.remove("hidden");
+    saveDraft(); // Save that it opened
+  });
+}
+
+if (closePopupBtn) {
+  closePopupBtn.addEventListener("click", () => {
+    popupOverlay.classList.add("hidden");
+    saveDraft(); // Save that it closed
+  });
+}
+
+// 4. SUBMIT FORM
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   output.textContent = "Sending…";
@@ -53,15 +77,13 @@ form.addEventListener("submit", async (e) => {
     const data = await res.json();
     output.textContent = JSON.stringify(data, null, 2);
 
-    // 4. CLEAR THE DRAFT ON SUCCESS
-    // If the submission worked, remove the saved draft so the form is blank next time
+    // Clear the saved draft on success so next time it's blank
     localStorage.removeItem('echoFormDraft');
     
-    // Optional: Clear the input fields visually
-    // form.reset(); 
+    // Optional: Close popup automatically after success
+    // popupOverlay.classList.add("hidden"); 
 
   } catch (err) {
     output.textContent = "Error: " + err.message;
-    // Note: If there is an error, we DO NOT clear the draft, so the user doesn't lose their text!
   }
 });

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Echo Demo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <h1>Echo Demo</h1>
+    <p class="sub">GitHub Pages → Worker → Apps Script</p>
+
+    <form id="echoForm">
+      <label>Name
+        <input type="text" id="name" placeholder="Ada" required />
+      </label>
+      <label>Message
+        <input type="text" id="message" placeholder="Hello, world!" required />
+      </label>
+      <button type="submit">Send</button>
+    </form>
+
+    <pre id="output">Awaiting request…</pre>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

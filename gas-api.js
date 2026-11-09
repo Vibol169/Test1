@@ -4,24 +4,26 @@ const API_URL = "https://icy-band-de97.ppap-tec-2022.workers.dev/";
 window.google = window.google || {};
 window.google.script = window.google.script || {};
 
-// This factory function creates a unique chain for every request
-function createRunner(handlers) {
+function createRunner(currentHandlers) {
+  // Create a local copy so concurrent requests don't overwrite each other
+  const localHandlers = { success: currentHandlers.success, failure: currentHandlers.failure };
+
   return new Proxy({}, {
     get: function(target, prop) {
       if (prop === 'withSuccessHandler') {
         return function(fn) {
-          handlers.success = fn;
-          return createRunner(handlers);
-        };
-      }
-      if (prop === 'withFailureHandler') {
-        return function(fn) {
-          handlers.failure = fn;
-          return createRunner(handlers);
+          localHandlers.success = fn;
+          return createRunner(localHandlers);
         };
       }
       
-      // The actual API call (e.g., validateLogin, getRequests)
+      if (prop === 'withFailureHandler') {
+        return function(fn) {
+          localHandlers.failure = fn;
+          return createRunner(localHandlers);
+        };
+      }
+      
       return function(...args) {
         const payload = { action: prop, payload: args };
         
@@ -35,17 +37,16 @@ function createRunner(handlers) {
           return res.json();
         })
         .then(data => {
-          if (handlers.success) handlers.success(data);
+          if (localHandlers.success) localHandlers.success(data);
         })
         .catch(err => {
           console.error("API Error on " + prop + ":", err);
-          if (handlers.failure) handlers.failure(err);
-          else if (handlers.success) handlers.success({ success: false, message: err.toString() });
+          if (localHandlers.failure) localHandlers.failure(err);
+          else if (localHandlers.success) localHandlers.success({ success: false, message: err.toString() });
         });
       };
     }
   });
 }
 
-// Initialize the global object
 window.google.script.run = createRunner({ success: null, failure: null });

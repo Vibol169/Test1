@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Echo Demo App</title>
   
-  <!-- 1. PWA Configuration -->
+  <!-- PWA Configuration -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0f172a" />
   
-  <!-- 2. Styles -->
+  <!-- Styles -->
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -24,7 +24,6 @@
   </main>
 
   <!-- THE POPUP MODAL -->
-  <!-- The 'hidden' class keeps it invisible by default -->
   <div id="popupOverlay" class="hidden">
     <div class="modal-content">
       
@@ -45,21 +44,21 @@
         <button type="submit" id="submitBtn">Send</button>
       </form>
       
-      <!-- Output Area for JSON Response -->
+      <!-- Output Area -->
       <pre id="output">Awaiting request…</pre>
       
     </div>
   </div>
 
-  <!-- 3. Your Application Logic -->
+  <!-- Application Logic -->
   <script src="app.js"></script>
   
-  <!-- 4. Service Worker Registration for PWA (Offline support & instant load) -->
+  <!-- Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js')
-          .then(reg => console.log('Service Worker registered successfully!', reg))
+          .then(reg => console.log('Service Worker registered!', reg))
           .catch(err => console.log('Service Worker registration failed:', err));
       });
     }

@@ -1443,24 +1443,35 @@ $(document).ready(function() {
       new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getLocationOptions(authToken)),
       new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getTechnicianOptions(authToken))
     ]).then(([equipOpts, partOpts, shortNames, locations, techs]) => {
+      
+      // 🛡️ SAFETY CHECK: If the backend returns an error, stop the spinner and show the error
+      if (equipOpts && equipOpts.success === false) {
+        hideLoading(); 
+        showLogin();
+        console.error("Backend Error:", equipOpts.message);
+        alert("Backend Error: " + equipOpts.message);
+        return;
+      }
+
       equipmentOptions = equipOpts;
       partNameOptions = partOpts;
       equipmentShortNames = shortNames;
       locationOptions = locations || [];
       technicianList = techs || [];
       
-      // 👇 ADD THIS LINE TO SEE IF TECHNICIANS ARE LOADED
       console.log('🧑‍🔧 Technicians loaded:', technicianList);
       
       let partDatalist = $('<datalist id="partDatalist"></datalist>');
       partNameOptions.forEach(name => partDatalist.append(`<option value="${escapeHtml(name)}">`));
       $('body').append(partDatalist);
+      
       hideLoading();
       showApp();
     }).catch(err => {
       hideLoading();
       sessionStorage.removeItem('authToken');
       sessionStorage.removeItem('userInfo');
+      console.error("Promise.all Error:", err);
       showLogin();
     });
   } else {

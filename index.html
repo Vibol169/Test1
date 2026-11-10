@@ -1436,44 +1436,36 @@ $(document).ready(function() {
 
   if (authToken) {
     showLoading('កំពុងផ្ទៀងផ្ទាត់...');
-    Promise.all([
-      new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getEquipmentOptions(authToken)),
-      new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getPartNameOptions(authToken)),
-      new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getEquipmentShortNameList(authToken)),
-      new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getLocationOptions(authToken)),
-      new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getTechnicianOptions(authToken))
-    ]).then(([equipOpts, partOpts, shortNames, locations, techs]) => {
-      
-      // 🛡️ SAFETY CHECK: If the backend returns an error, stop the spinner and show the error
-      if (equipOpts && equipOpts.success === false) {
-        hideLoading(); 
-        showLogin();
-        console.error("Backend Error:", equipOpts.message);
-        alert("Backend Error: " + equipOpts.message);
-        return;
-      }
+    
+    google.script.run
+      .withSuccessHandler(data => {
+        if (data.success === false) {
+          hideLoading(); 
+          showLogin();
+          return alert("Backend Error: " + data.message);
+        }
 
-      equipmentOptions = equipOpts;
-      partNameOptions = partOpts;
-      equipmentShortNames = shortNames;
-      locationOptions = locations || [];
-      technicianList = techs || [];
-      
-      console.log('🧑‍🔧 Technicians loaded:', technicianList);
-      
-      let partDatalist = $('<datalist id="partDatalist"></datalist>');
-      partNameOptions.forEach(name => partDatalist.append(`<option value="${escapeHtml(name)}">`));
-      $('body').append(partDatalist);
-      
-      hideLoading();
-      showApp();
-    }).catch(err => {
-      hideLoading();
-      sessionStorage.removeItem('authToken');
-      sessionStorage.removeItem('userInfo');
-      console.error("Promise.all Error:", err);
-      showLogin();
-    });
+        equipmentOptions = data.equipOpts;
+        partNameOptions = data.partOpts;
+        equipmentShortNames = data.shortNames;
+        locationOptions = data.locations || [];
+        technicianList = data.techs || [];
+        
+        let partDatalist = $('<datalist id="partDatalist"></datalist>');
+        partNameOptions.forEach(name => partDatalist.append(`<option value="${escapeHtml(name)}">`));
+        $('body').append(partDatalist);
+        
+        hideLoading();
+        showApp();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('userInfo');
+        showLogin();
+      })
+      .getInitialAppData(authToken); // <-- The single, fast request
+
   } else {
     showLogin();
   }
@@ -1681,30 +1673,60 @@ function loadRepairRequestsInBackground(force = false, skipRender = false) {
     }
   }).withFailureHandler(err => { loadingRepairs = false; handleError(err); }).getRepairRequests(authToken);
 }
+
 $('#loginForm').submit(function(e) {
   e.preventDefault();
   let username = $('#username').val(), password = $('#password').val();
-  $('#loginError').text(''); showLoading('កំពុងចូល...');
+  $('#loginError').text(''); 
+  showLoading('កំពុងចូល...');
+
   google.script.run.withSuccessHandler(function(res) {
-    hideLoading();
     if (res.success) {
       authToken = res.token;
       localStorage.setItem('authToken', authToken);
       currentUser = { username: res.username, role: res.role, group: res.group };
       localStorage.setItem('userInfo', JSON.stringify(currentUser));
-      Promise.all([
-        new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getEquipmentOptions(authToken)),
-        new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getPartNameOptions(authToken)),
-        new Promise((resolve, reject) => google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).getEquipmentShortNameList(authToken))
-      ]).then(([equipOpts, partOpts, shortNames]) => {
-        equipmentOptions = equipOpts; partNameOptions = partOpts; equipmentShortNames = shortNames;
-        let partDatalist = $('<datalist id="partDatalist"></datalist>');
-        partNameOptions.forEach(name => partDatalist.append(`<option value="${escapeHtml(name)}">`));
-        $('body').append(partDatalist);
-        showApp();
-      }).catch(handleError);
-    } else { $('#loginError').text(res.message); }
-  }).withFailureHandler(err => { hideLoading(); $('#loginError').text('កំហុស: ' + err.message); }).validateLogin(username, password);
+      
+      // Keep the spinner going and change the message
+      $('#loadingMessage').text('កំពុងផ្ទុកទិន្នន័យ...');
+
+      // 🚀 SINGLE FAST REQUEST for all initial data
+      google.script.run
+        .withSuccessHandler(function(data) {
+          hideLoading();
+          
+          if (data.success === false) {
+            showAlert("Backend Error: " + data.message, 'danger');
+            return;
+          }
+
+          // Assign all data at once
+          equipmentOptions = data.equipOpts;
+          partNameOptions = data.partOpts;
+          equipmentShortNames = data.shortNames;
+          locationOptions = data.locations || [];
+          technicianList = data.techs || [];
+
+          let partDatalist = $('<datalist id="partDatalist"></datalist>');
+          partNameOptions.forEach(name => partDatalist.append(`<option value="${escapeHtml(name)}">`));
+          $('body').append(partDatalist);
+          
+          showApp(); // Open the app
+        })
+        .withFailureHandler(function(err) {
+          hideLoading();
+          handleError(err);
+        })
+        .getInitialAppData(authToken);
+
+    } else { 
+      hideLoading();
+      $('#loginError').text(res.message); 
+    }
+  }).withFailureHandler(err => { 
+    hideLoading(); 
+    $('#loginError').text('កំហុស: ' + err.message); 
+  }).validateLogin(username, password);
 });
 
 // ============= Scroll position helpers =============

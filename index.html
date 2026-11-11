@@ -1574,7 +1574,24 @@ function loadZoomFontSettings() {
 }
 function showLoading(msg) { $('#loadingMessage').text(msg || 'កំពុងដំណើរការ...'); $('#loadingOverlay').fadeIn(200); }
 function hideLoading() { $('#loadingOverlay').fadeOut(200); }
-function handleError(err) { console.error(err); showAlert('កំហុស: ' + err.message, 'danger'); hideLoading(); }
+
+function handleError(err) {
+  console.error(err);
+  hideLoading();
+  
+  // If the backend specifically says the token is invalid, log them out.
+  if (err.message && (err.message.includes('Authentication required') || err.message.includes('Invalid'))) {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userInfo');
+    authToken = null;
+    showLogin();
+    showAlert('Session expired. Please log in again.', 'warning');
+  } else {
+    // For any other network error, just show a toast and DON'T reload or logout.
+    showAlert('Network issue: ' + (err.message || 'Connection failed'), 'danger');
+  }
+}
+
 function showAlert(message, type = 'info') {
   let alertHtml = `<div class="alert alert-${type} alert-dismissible fade show fixed-top mx-3 mt-3" role="alert" style="z-index: 10000;">${escapeHtml(message)}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
   $('#app').prepend(alertHtml);
@@ -1845,10 +1862,14 @@ function showPage(page) {
 
 function startRefreshTimer() {
   if (refreshInterval) clearInterval(refreshInterval);
+  
+  // ⚡ 1. Auto-sync every 60 seconds (60000 ms)
   refreshInterval = setInterval(() => {
     let currentPage = $('#bottomNav a.active').data('page');
     let isDetailView = (currentDetailId !== null);
     let isModalOpen = isPartModalOpen;
+    
+    // Only fetch silently (skipRender = true) if they are actively typing/reading
     if (currentPage === 'list' && !isDetailView && !isModalOpen) {
       loadRequestsInBackground(true, false);
       loadRepairRequestsInBackground(true, false);
@@ -1856,8 +1877,22 @@ function startRefreshTimer() {
       loadRequestsInBackground(true, true);
       loadRepairRequestsInBackground(true, true);
     }
-  }, 6000000);
+  }, 60000); // 60 seconds
 }
+
+// ⚡ 2. Sync instantly when user re-opens the app from background
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === 'visible' && authToken) {
+    // User returned to the app, fetch fresh data silently
+    loadRequestsInBackground(true, true);
+    loadRepairRequestsInBackground(true, true);
+    
+    // If they are on the list page, re-render with the fresh data
+    if ($('#bottomNav a.active').data('page') === 'list') {
+      renderRequestsList();
+    }
+  }
+});
 
 function stopRefreshTimer() {
   if (refreshInterval) {

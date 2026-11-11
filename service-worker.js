@@ -1,5 +1,5 @@
 // Change this version number (v1, v2, etc.) whenever you update your app files
-const CACHE_NAME = 'echo-demo-v14';
+const CACHE_NAME = 'echo-demo-v15';
 
 // These are the files the app needs to load instantly
 const ASSETS_TO_CACHE = [

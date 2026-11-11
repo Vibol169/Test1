@@ -1860,34 +1860,19 @@ function showPage(page) {
   }
 }
 
-let lastSyncTime = 0;
+let isSyncing = false;
 
-function syncAllData(force = false) {
-  // Prevent overlapping requests
-  if (loadingRequests || loadingRepairs) return; 
-  
-  // If not forced, only sync if it's been at least 30 seconds since the last sync
-  const now = Date.now();
-  if (!force && (now - lastSyncTime < 30000)) return;
+function syncAllData() {
+  if (isSyncing || !authToken) return;
+  isSyncing = true;
 
-  loadingRequests = true;
-  loadingRepairs = true;
-  lastSyncTime = now;
+  let partsLoaded = false;
+  let repairsLoaded = false;
 
-  Promise.all([
-    new Promise((resolve) => {
-      google.script.run
-        .withSuccessHandler(res => { requestGroups = res; loadingRequests = false; resolve(); })
-        .withFailureHandler(() => { loadingRequests = false; resolve(); })
-        .getRequests(authToken);
-    }),
-    new Promise((resolve) => {
-      google.script.run
-        .withSuccessHandler(res => { repairRequests = res; loadingRepairs = false; resolve(); })
-        .withFailureHandler(() => { loadingRepairs = false; resolve(); })
-        .getRepairRequests(authToken);
-    })
-  ]).then(() => {
+  function tryRender() {
+    if (!partsLoaded || !repairsLoaded) return; // Wait for both to finish
+    isSyncing = false;
+    
     let currentPage = $('#bottomNav a.active').data('page');
     if (currentPage === 'list') {
       let scrollY = window.scrollY;
@@ -1895,40 +1880,44 @@ function syncAllData(force = false) {
       window.scrollTo(0, scrollY);
     } else if (currentPage === 'home') {
       renderHomeStats();
-    } else if (currentDetailId) {
-      if (currentDetailType === 'repair') viewRepairRequest(currentDetailId);
-      else if (currentDetailType === 'part') viewRequest(currentDetailId);
     }
-  });
+  }
+
+  // Fetch Parts
+  google.script.run
+    .withSuccessHandler(res => {
+      if (Array.isArray(res)) requestGroups = res; // Prevent crash on error
+      partsLoaded = true;
+      tryRender();
+    })
+    .withFailureHandler(() => { partsLoaded = true; tryRender(); })
+    .getRequests(authToken);
+
+  // Fetch Repairs
+  google.script.run
+    .withSuccessHandler(res => {
+      if (Array.isArray(res)) repairRequests = res;
+      repairsLoaded = true;
+      tryRender();
+    })
+    .withFailureHandler(() => { repairsLoaded = true; tryRender(); })
+    .getRepairRequests(authToken);
 }
 
 function startRefreshTimer() {
   if (refreshInterval) clearInterval(refreshInterval);
   
-  // 1. Regular background timer (every 60s)
+  // Sync every 60 seconds
   refreshInterval = setInterval(() => {
-    let currentPage = $('#bottomNav a.active').data('page');
-    let isDetailView = (currentDetailId !== null);
-    let isModalOpen = isPartModalOpen;
-    
-    if (!isDetailView && !isModalOpen) {
+    if (currentDetailId === null && !isPartModalOpen) {
        syncAllData(); 
     }
   }, 60000); 
 }
 
-// 2. The "Wake Up" listeners
+// Sync instantly on tab focus or wake up
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === 'visible' && authToken) {
-    if (currentDetailId === null && !isPartModalOpen) {
-       syncAllData(); // Don't force, just check the 30s limit
-    }
-  }
-});
-
-// 3. Force sync when the user clicks anywhere on the app after being away
-window.addEventListener('focus', () => {
-  if (authToken && currentDetailId === null && !isPartModalOpen) {
+  if (document.visibilityState === 'visible' && authToken && currentDetailId === null) {
     syncAllData();
   }
 });

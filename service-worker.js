@@ -1,5 +1,5 @@
 // Change this version number (v1, v2, etc.) whenever you update your app files
-const CACHE_NAME = 'echo-demo-v16';
+const CACHE_NAME = 'echo-demo-v17';
 
 // These are the files the app needs to load instantly
 const ASSETS_TO_CACHE = [
@@ -55,6 +55,35 @@ self.addEventListener('fetch', (event) => {
       }
       // Otherwise, download it from the network
       return fetch(event.request);
+    })
+  );
+});
+
+// 🚀 PUSH EVENT LISTENER
+self.addEventListener('push', function(event) {
+  if (event.data) {
+    const data = event.data.json();
+    const options = {
+      body: data.body,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      vibrate: [100, 50, 100],
+      data: { dateOfArrival: Date.now(), primaryKey: data.url || './' }
+    };
+    event.waitUntil(self.registration.showNotification(data.title, options));
+  }
+});
+
+// 🚀 NOTIFICATION CLICK LISTENER
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow(event.notification.data.primaryKey);
     })
   );
 });

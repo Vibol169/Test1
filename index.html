@@ -1860,25 +1860,70 @@ function showPage(page) {
   }
 }
 
+function syncAllData() {
+  if (loadingRequests || loadingRepairs) return; // Prevent overlapping
+  loadingRequests = true;
+  loadingRepairs = true;
+
+  // Fetch both lists in parallel
+  Promise.all([
+    new Promise((resolve) => {
+      google.script.run
+        .withSuccessHandler(res => { requestGroups = res; loadingRequests = false; resolve(); })
+        .withFailureHandler(() => { loadingRequests = false; resolve(); })
+        .getRequests(authToken);
+    }),
+    new Promise((resolve) => {
+      google.script.run
+        .withSuccessHandler(res => { repairRequests = res; loadingRepairs = false; resolve(); })
+        .withFailureHandler(() => { loadingRepairs = false; resolve(); })
+        .getRepairRequests(authToken);
+    })
+  ]).then(() => {
+    // Both lists are updated! Now re-render the current view exactly ONCE.
+    let currentPage = $('#bottomNav a.active').data('page');
+    
+    if (currentPage === 'list') {
+      // Save scroll position to prevent jumping to the top
+      let scrollY = window.scrollY;
+      renderRequestsList();
+      window.scrollTo(0, scrollY);
+    } else if (currentPage === 'home') {
+      renderHomeStats();
+    } else if (currentDetailId) {
+      if (currentDetailType === 'repair') viewRepairRequest(currentDetailId);
+      else if (currentDetailType === 'part') viewRequest(currentDetailId);
+    }
+  });
+}
+
 function startRefreshTimer() {
   if (refreshInterval) clearInterval(refreshInterval);
   
-  // ⚡ 1. Auto-sync every 60 seconds (60000 ms)
+  // Auto-sync every 60 seconds
   refreshInterval = setInterval(() => {
     let currentPage = $('#bottomNav a.active').data('page');
     let isDetailView = (currentDetailId !== null);
     let isModalOpen = isPartModalOpen;
     
-    // Only fetch silently (skipRender = true) if they are actively typing/reading
-    if (currentPage === 'list' && !isDetailView && !isModalOpen) {
-      loadRequestsInBackground(true, false);
-      loadRepairRequestsInBackground(true, false);
-    } else {
-      loadRequestsInBackground(true, true);
-      loadRepairRequestsInBackground(true, true);
+    // Only sync if not typing in a modal or viewing a detail page
+    if (!isDetailView && !isModalOpen) {
+       syncAllData();
     }
-  }, 60000); // 60 seconds
+  }, 60000); 
 }
+
+// Sync instantly when user re-opens the app
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === 'visible' && authToken) {
+    let isDetailView = (currentDetailId !== null);
+    let isModalOpen = isPartModalOpen;
+    
+    if (!isDetailView && !isModalOpen) {
+       syncAllData();
+    }
+  }
+});
 
 // ⚡ 2. Sync instantly when user re-opens the app from background
 document.addEventListener("visibilitychange", () => {

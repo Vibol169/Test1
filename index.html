@@ -4947,6 +4947,7 @@ function updateLocalParts(updatedParts) {
     }
   });
 }
+
 function loadProfile() {
   currentDetailId = null;
   currentDetailType = null;
@@ -4956,17 +4957,23 @@ function loadProfile() {
       <h5>គណនីរបស់ខ្ញុំ</h5>
       <p><strong>ឈ្មោះអ្នកប្រើ:</strong> ${escapeHtml(currentUser.username)}</p>
       <p><strong>តួនាទី:</strong> ${escapeHtml(currentUser.role)} ${currentUser.group ? ' (' + escapeHtml(currentUser.group) + ')' : ''}</p>
-       <!-- 👇 ADD THIS BUTTON HERE -->
-      <button id="enablePushBtn" class="btn btn-primary w-100 mt-3" style="display: none;">
+      
+      <!-- 👇 THIS IS THE MISSING BUTTON -->
+      <button id="enablePushBtn" class="btn btn-primary w-100 mt-3 mb-2" style="display: none;">
         <i class="bi bi-bell"></i> បើកការជូនដំណឹង (Enable Notifications)
       </button>
+
       <hr>
       <button class="btn btn-outline-primary w-100 mb-2" onclick="toggleSettings()"><i class="bi bi-gear"></i> ការកំណត់</button>
       <button class="btn btn-outline-danger w-100" onclick="logout()">ចាកចេញ</button>
     </div>
   </div>`;
   $('#app').html(html);
+
+  // 👇 CALL THIS FUNCTION AFTER THE HTML IS RENDERED
+  initPushNotifications();
 }
+
 function toggleSettings() { $('#settingsPanel').toggleClass('visible'); }
 function logout() {
   showLoading('កំពុងចាកចេញ...');
@@ -6659,17 +6666,7 @@ function loadDocumentTrackerData(callback) {
     callback();
   }).getDocumentTrackerWithPdfLinks();
 }
-</script>
-<script>
-    // Check if we are on GitHub/Cloudflare and NOT inside Google's servers
-    if (window.location.hostname.indexOf('google') === -1 && 'serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js')
-          .then(reg => console.log('Service Worker registered!', reg))
-          .catch(err => console.log('Service Worker registration failed:', err));
-      });
-    }
-  
+
 // ================== PUSH NOTIFICATIONS ==================
 const VAPID_PUBLIC_KEY = "BA80hrz4_mv2vhfJE-di55PGW7q22pk0pGfSY8lKIEQAWSbhi7hlRRsoJPLxIHNU0__mXWIdq6L9d1Ob-QRyEMw"; // ⚠️ Replace with your actual public key
 
@@ -6732,7 +6729,16 @@ async function initPushNotifications() {
     console.log('Push init error:', e);
   }
 }
-
+</script>
+<script>
+    // Check if we are on GitHub/Cloudflare and NOT inside Google's servers
+    if (window.location.hostname.indexOf('google') === -1 && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+          .then(reg => console.log('Service Worker registered!', reg))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
 </script>
 </body>
 </html>

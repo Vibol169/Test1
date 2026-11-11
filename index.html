@@ -1868,10 +1868,13 @@ function showPage(page) {
 }
 
 let isSyncing = false;
+let lastSyncTime = Date.now();
+const SYNC_INTERVAL = 60 * 1000; // 60 seconds
 
 function syncAllData() {
   if (isSyncing || !authToken) return;
   isSyncing = true;
+  lastSyncTime = Date.now(); // Reset the timer
 
   let partsLoaded = false;
   let repairsLoaded = false;
@@ -1890,7 +1893,7 @@ function syncAllData() {
     }
   }
 
-  // Fetch Parts
+  // Fetch Parts (with safety net)
   google.script.run
     .withSuccessHandler(res => {
       if (Array.isArray(res)) requestGroups = res; 
@@ -1900,7 +1903,7 @@ function syncAllData() {
     .withFailureHandler(() => { partsLoaded = true; tryRender(); })
     .getRequests(authToken);
 
-  // Fetch Repairs
+  // Fetch Repairs (with safety net)
   google.script.run
     .withSuccessHandler(res => {
       if (Array.isArray(res)) repairRequests = res;
@@ -1911,23 +1914,38 @@ function syncAllData() {
     .getRepairRequests(authToken);
 }
 
+// 🚀 THE ANTI-THROTTLE TIMER
 function startRefreshTimer() {
-  if (refreshInterval) clearInterval(refreshInterval);
-  
-  // Regular timer
-  refreshInterval = setInterval(() => {
-    if (currentDetailId === null && !isPartModalOpen) {
-       syncAllData(); 
+  if (refreshInterval) cancelAnimationFrame(refreshInterval);
+
+  function checkTimer() {
+    // Only check the timer if the tab is visible and user isn't in a modal
+    if (document.visibilityState === 'visible' && currentDetailId === null && !isPartModalOpen) {
+      if (Date.now() - lastSyncTime >= SYNC_INTERVAL) {
+        syncAllData();
+      }
     }
-  }, 60000); 
+    // Keep the loop running 60 times per second
+    refreshInterval = requestAnimationFrame(checkTimer);
+  }
+  
+  // Start the loop
+  refreshInterval = requestAnimationFrame(checkTimer);
 }
 
-// Force sync when you open the app or switch back to the tab
+// 🚀 INSTANT SYNC ON TAB SWITCH
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === 'visible' && authToken && currentDetailId === null) {
-    syncAllData();
+    syncAllData(); 
   }
 });
+
+// 🚀 INSTANT SYNC ON MOUSE CLICK / SCROLL (Just in case)
+window.addEventListener('scroll', () => {
+  if (document.visibilityState === 'visible' && !isSyncing && (Date.now() - lastSyncTime >= SYNC_INTERVAL)) {
+    syncAllData();
+  }
+}, { passive: true });
 
 function stopRefreshTimer() {
   if (refreshInterval) {

@@ -7,7 +7,7 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
   console.log("GitHub Pages detected: Loading Cloudflare Worker API bridge.");
   
   // REPLACE WITH YOUR ACTUAL CLOUDFLARE WORKER URL
-  const API_URL = "https://icy-band-de97.ppap-tec-2022.workers.dev/";
+  const API_URL = "https://push-worker.ppap-tec-2022.workers.dev/";
 
   window.google = window.google || {};
   window.google.script = window.google.script || {};

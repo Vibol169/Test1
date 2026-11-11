@@ -1870,7 +1870,7 @@ function syncAllData() {
   let repairsLoaded = false;
 
   function tryRender() {
-    if (!partsLoaded || !repairsLoaded) return; // Wait for both to finish
+    if (!partsLoaded || !repairsLoaded) return; 
     isSyncing = false;
     
     let currentPage = $('#bottomNav a.active').data('page');
@@ -1886,7 +1886,7 @@ function syncAllData() {
   // Fetch Parts
   google.script.run
     .withSuccessHandler(res => {
-      if (Array.isArray(res)) requestGroups = res; // Prevent crash on error
+      if (Array.isArray(res)) requestGroups = res; 
       partsLoaded = true;
       tryRender();
     })
@@ -1907,7 +1907,7 @@ function syncAllData() {
 function startRefreshTimer() {
   if (refreshInterval) clearInterval(refreshInterval);
   
-  // Sync every 60 seconds
+  // Regular timer
   refreshInterval = setInterval(() => {
     if (currentDetailId === null && !isPartModalOpen) {
        syncAllData(); 
@@ -1915,7 +1915,7 @@ function startRefreshTimer() {
   }, 60000); 
 }
 
-// Sync instantly on tab focus or wake up
+// Force sync when you open the app or switch back to the tab
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === 'visible' && authToken && currentDetailId === null) {
     syncAllData();

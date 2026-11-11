@@ -1816,7 +1816,7 @@ function showPage(page) {
     loadHome();
   } else if (page === 'new') {
     loadNewRequest();
-} else if (page === 'list') {
+  } else if (page === 'list') {
     currentDetailId = null;
     currentDetailType = null;
     if (loadingRequests || loadingRepairs || repairRequests.length === 0 || requestGroups.length === 0) {
@@ -1824,8 +1824,10 @@ function showPage(page) {
       loadRepairRequestsInBackground(true);
       showLoadingIndicator();
     } else {
+      // 1. Instantly render the old data so the screen isn't blank
       renderRequestsList();
-      // Center the active sub-tab in its tab bar (covers arrival from home cards)
+      
+      // Center the active sub-tab
       setTimeout(() => {
         if (activeMainTab === 'partStatus') {
           scrollActiveTabIntoView('partStatusSubTabBar', activePartStatusTab);
@@ -1837,7 +1839,12 @@ function showPage(page) {
           scrollActiveTabIntoView('progressSubTabBar', activeRepairProgressTab);
         }
       }, 20);
+      
       restoreListScrollPosition();
+
+      // 2. 🚨 FORCE A BACKGROUND SYNC right after rendering!
+      // This silently fetches new data and updates the screen 1 second later.
+      syncAllData(); 
     }
     startRefreshTimer();
   } else if (page === 'report') {

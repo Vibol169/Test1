@@ -1860,12 +1860,20 @@ function showPage(page) {
   }
 }
 
-function syncAllData() {
-  if (loadingRequests || loadingRepairs) return; // Prevent overlapping
+let lastSyncTime = 0;
+
+function syncAllData(force = false) {
+  // Prevent overlapping requests
+  if (loadingRequests || loadingRepairs) return; 
+  
+  // If not forced, only sync if it's been at least 30 seconds since the last sync
+  const now = Date.now();
+  if (!force && (now - lastSyncTime < 30000)) return;
+
   loadingRequests = true;
   loadingRepairs = true;
+  lastSyncTime = now;
 
-  // Fetch both lists in parallel
   Promise.all([
     new Promise((resolve) => {
       google.script.run
@@ -1880,11 +1888,8 @@ function syncAllData() {
         .getRepairRequests(authToken);
     })
   ]).then(() => {
-    // Both lists are updated! Now re-render the current view exactly ONCE.
     let currentPage = $('#bottomNav a.active').data('page');
-    
     if (currentPage === 'list') {
-      // Save scroll position to prevent jumping to the top
       let scrollY = window.scrollY;
       renderRequestsList();
       window.scrollTo(0, scrollY);
@@ -1900,42 +1905,31 @@ function syncAllData() {
 function startRefreshTimer() {
   if (refreshInterval) clearInterval(refreshInterval);
   
-  // Auto-sync every 60 seconds
+  // 1. Regular background timer (every 60s)
   refreshInterval = setInterval(() => {
     let currentPage = $('#bottomNav a.active').data('page');
     let isDetailView = (currentDetailId !== null);
     let isModalOpen = isPartModalOpen;
     
-    // Only sync if not typing in a modal or viewing a detail page
     if (!isDetailView && !isModalOpen) {
-       syncAllData();
+       syncAllData(); 
     }
   }, 60000); 
 }
 
-// Sync instantly when user re-opens the app
+// 2. The "Wake Up" listeners
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === 'visible' && authToken) {
-    let isDetailView = (currentDetailId !== null);
-    let isModalOpen = isPartModalOpen;
-    
-    if (!isDetailView && !isModalOpen) {
-       syncAllData();
+    if (currentDetailId === null && !isPartModalOpen) {
+       syncAllData(); // Don't force, just check the 30s limit
     }
   }
 });
 
-// ⚡ 2. Sync instantly when user re-opens the app from background
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === 'visible' && authToken) {
-    // User returned to the app, fetch fresh data silently
-    loadRequestsInBackground(true, true);
-    loadRepairRequestsInBackground(true, true);
-    
-    // If they are on the list page, re-render with the fresh data
-    if ($('#bottomNav a.active').data('page') === 'list') {
-      renderRequestsList();
-    }
+// 3. Force sync when the user clicks anywhere on the app after being away
+window.addEventListener('focus', () => {
+  if (authToken && currentDetailId === null && !isPartModalOpen) {
+    syncAllData();
   }
 });
 

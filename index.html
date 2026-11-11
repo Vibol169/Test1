@@ -1868,13 +1868,12 @@ function showPage(page) {
 }
 
 let isSyncing = false;
-let lastSyncTime = Date.now();
-const SYNC_INTERVAL = 60 * 1000; // 60 seconds
+let lastSyncTime = 0;
 
 function syncAllData() {
   if (isSyncing || !authToken) return;
   isSyncing = true;
-  lastSyncTime = Date.now(); // Reset the timer
+  lastSyncTime = Date.now();
 
   let partsLoaded = false;
   let repairsLoaded = false;
@@ -1893,20 +1892,21 @@ function syncAllData() {
     }
   }
 
-  // Fetch Parts (with safety net)
+  // Fetch Parts
   google.script.run
     .withSuccessHandler(res => {
-      if (Array.isArray(res)) requestGroups = res; 
+      // If backend returns null, keep the old data
+      if (res !== null && Array.isArray(res)) requestGroups = res; 
       partsLoaded = true;
       tryRender();
     })
     .withFailureHandler(() => { partsLoaded = true; tryRender(); })
     .getRequests(authToken);
 
-  // Fetch Repairs (with safety net)
+  // Fetch Repairs
   google.script.run
     .withSuccessHandler(res => {
-      if (Array.isArray(res)) repairRequests = res;
+      if (res !== null && Array.isArray(res)) repairRequests = res;
       repairsLoaded = true;
       tryRender();
     })
@@ -1914,38 +1914,37 @@ function syncAllData() {
     .getRepairRequests(authToken);
 }
 
-// 🚀 THE ANTI-THROTTLE TIMER
+// 🚀 THE UN-THROTTLED WEB WORKER TIMER
 function startRefreshTimer() {
-  if (refreshInterval) cancelAnimationFrame(refreshInterval);
+  if (window.mySyncWorker) {
+    window.mySyncWorker.terminate();
+  }
 
-  function checkTimer() {
-    // Only check the timer if the tab is visible and user isn't in a modal
-    if (document.visibilityState === 'visible' && currentDetailId === null && !isPartModalOpen) {
-      if (Date.now() - lastSyncTime >= SYNC_INTERVAL) {
+  const workerCode = `
+    setInterval(() => {
+      postMessage('tick');
+    }, 30000); // 30 seconds
+  `;
+
+  const blob = new Blob([workerCode], { type: 'application/javascript' });
+  window.mySyncWorker = new Worker(URL.createObjectURL(blob));
+
+  window.mySyncWorker.onmessage = function(e) {
+    if (e.data === 'tick') {
+      // Only sync if visible, not in a modal, and not on a detail page
+      if (document.visibilityState === 'visible' && currentDetailId === null && !isPartModalOpen) {
         syncAllData();
       }
     }
-    // Keep the loop running 60 times per second
-    refreshInterval = requestAnimationFrame(checkTimer);
-  }
-  
-  // Start the loop
-  refreshInterval = requestAnimationFrame(checkTimer);
+  };
 }
 
-// 🚀 INSTANT SYNC ON TAB SWITCH
+// Instant sync on tab switch
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === 'visible' && authToken && currentDetailId === null) {
-    syncAllData(); 
-  }
-});
-
-// 🚀 INSTANT SYNC ON MOUSE CLICK / SCROLL (Just in case)
-window.addEventListener('scroll', () => {
-  if (document.visibilityState === 'visible' && !isSyncing && (Date.now() - lastSyncTime >= SYNC_INTERVAL)) {
     syncAllData();
   }
-}, { passive: true });
+});
 
 function stopRefreshTimer() {
   if (refreshInterval) {

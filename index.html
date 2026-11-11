@@ -4949,8 +4949,7 @@ function updateLocalParts(updatedParts) {
 }
 
 function loadProfile() {
-  currentDetailId = null;
-  currentDetailType = null;
+  // ...
   let html = `
   <div class="container mt-3">
     <div class="card p-3">
@@ -4958,7 +4957,7 @@ function loadProfile() {
       <p><strong>ឈ្មោះអ្នកប្រើ:</strong> ${escapeHtml(currentUser.username)}</p>
       <p><strong>តួនាទី:</strong> ${escapeHtml(currentUser.role)} ${currentUser.group ? ' (' + escapeHtml(currentUser.group) + ')' : ''}</p>
       
-      <!-- 👇 THIS IS THE MISSING BUTTON (Changed to display: block) -->
+      <!-- 👇 CHANGE THIS TO display: block; -->
       <button id="enablePushBtn" class="btn btn-primary w-100 mt-3 mb-2" style="display: block;">
         <i class="bi bi-bell"></i> បើកការជូនដំណឹង (Enable Notifications)
       </button>
@@ -6682,28 +6681,28 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function initPushNotifications() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-
   const btn = document.getElementById('enablePushBtn');
   if (!btn) return;
 
-  try {
-    // 1. Wait for Service Worker (with a 3-second timeout)
-    const registration = await Promise.race([
-      navigator.serviceWorker.ready,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('SW timeout')), 3000))
-    ]);
+  // If browser doesn't support push, disable the button
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    btn.innerHTML = "Browser does not support notifications";
+    btn.disabled = true;
+    return;
+  }
 
-    // 2. Check if already subscribed
+  try {
+    const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
     
     if (subscription) {
       btn.style.display = 'none'; // Hide if already subscribed
-    } else {
-      btn.style.display = 'block'; // Show if not subscribed
+      return;
     }
 
-    // 3. Attach click event
+    // If not subscribed, ensure it's visible and attach click listener
+    btn.style.display = 'block';
+    
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
 
@@ -6722,7 +6721,6 @@ async function initPushNotifications() {
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
         
-        // Send to GAS backend to save
         google.script.run
           .withSuccessHandler(res => {
             if (res.success) {
@@ -6740,8 +6738,8 @@ async function initPushNotifications() {
       }
     });
   } catch (e) {
-    console.log('Push init error or timeout:', e);
-    // Even if it times out, show the button so the user knows it exists
+    console.log('Push init error:', e);
+    // If SW isn't ready, still show the button so user knows it exists
     btn.style.display = 'block'; 
   }
 }

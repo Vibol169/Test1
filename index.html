@@ -4958,8 +4958,8 @@ function loadProfile() {
       <p><strong>ឈ្មោះអ្នកប្រើ:</strong> ${escapeHtml(currentUser.username)}</p>
       <p><strong>តួនាទី:</strong> ${escapeHtml(currentUser.role)} ${currentUser.group ? ' (' + escapeHtml(currentUser.group) + ')' : ''}</p>
       
-      <!-- 👇 THIS IS THE MISSING BUTTON -->
-      <button id="enablePushBtn" class="btn btn-primary w-100 mt-3 mb-2" style="display: none;">
+      <!-- 👇 THIS IS THE MISSING BUTTON (Changed to display: block) -->
+      <button id="enablePushBtn" class="btn btn-primary w-100 mt-3 mb-2" style="display: block;">
         <i class="bi bi-bell"></i> បើកការជូនដំណឹង (Enable Notifications)
       </button>
 
@@ -6684,29 +6684,39 @@ function urlBase64ToUint8Array(base64String) {
 async function initPushNotifications() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
+  const btn = document.getElementById('enablePushBtn');
+  if (!btn) return;
+
   try {
-    const registration = await navigator.serviceWorker.ready;
+    // 1. Wait for Service Worker (with a 3-second timeout)
+    const registration = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('SW timeout')), 3000))
+    ]);
+
+    // 2. Check if already subscribed
     const subscription = await registration.pushManager.getSubscription();
     
-    const btn = document.getElementById('enablePushBtn');
-    if (!btn) return;
-    
     if (subscription) {
-      btn.style.display = 'none'; // Already subscribed
+      btn.style.display = 'none'; // Hide if already subscribed
     } else {
-      btn.style.display = 'block'; // Show button
-      
-      // Remove old listeners to prevent duplicates
-      const newBtn = btn.cloneNode(true);
-      btn.parentNode.replaceChild(newBtn, btn);
+      btn.style.display = 'block'; // Show if not subscribed
+    }
 
-      newBtn.addEventListener('click', async () => {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          alert('អ្នកបានបដិសេធការជូនដំណឹង។');
-          return;
-        }
-        
+    // 3. Attach click event
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.addEventListener('click', async () => {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('អ្នកបានបដិសេធការជូនដំណឹង។');
+        return;
+      }
+      
+      newBtn.innerHTML = 'កំពុងបើក...';
+      
+      try {
         const newSub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
@@ -6720,15 +6730,22 @@ async function initPushNotifications() {
               alert('បានបើកការជូនដំណឹងដោយជោគជ័យ!');
             } else {
               alert('Error: ' + res.message);
+              newBtn.innerHTML = '<i class="bi bi-bell"></i> បើកការជូនដំណឹង (Enable Notifications)';
             }
           })
           .savePushSubscription(newSub, authToken);
-      });
-    }
+      } catch (err) {
+        alert('Cannot subscribe: ' + err.message);
+        newBtn.innerHTML = '<i class="bi bi-bell"></i> បើកការជូនដំណឹង (Enable Notifications)';
+      }
+    });
   } catch (e) {
-    console.log('Push init error:', e);
+    console.log('Push init error or timeout:', e);
+    // Even if it times out, show the button so the user knows it exists
+    btn.style.display = 'block'; 
   }
 }
+
 </script>
 <script>
     // Check if we are on GitHub/Cloudflare and NOT inside Google's servers

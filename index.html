@@ -1448,6 +1448,8 @@ $(document).ready(function() {
   }
   loadZoomFontSettings();
 
+  initPushNotifications();
+
   if (authToken) {
     showLoading('កំពុងផ្ទៀងផ្ទាត់...');
     
@@ -4954,6 +4956,10 @@ function loadProfile() {
       <h5>គណនីរបស់ខ្ញុំ</h5>
       <p><strong>ឈ្មោះអ្នកប្រើ:</strong> ${escapeHtml(currentUser.username)}</p>
       <p><strong>តួនាទី:</strong> ${escapeHtml(currentUser.role)} ${currentUser.group ? ' (' + escapeHtml(currentUser.group) + ')' : ''}</p>
+       <!-- 👇 ADD THIS BUTTON HERE -->
+      <button id="enablePushBtn" class="btn btn-primary w-100 mt-3" style="display: none;">
+        <i class="bi bi-bell"></i> បើកការជូនដំណឹង (Enable Notifications)
+      </button>
       <hr>
       <button class="btn btn-outline-primary w-100 mb-2" onclick="toggleSettings()"><i class="bi bi-gear"></i> ការកំណត់</button>
       <button class="btn btn-outline-danger w-100" onclick="logout()">ចាកចេញ</button>
@@ -6654,8 +6660,7 @@ function loadDocumentTrackerData(callback) {
   }).getDocumentTrackerWithPdfLinks();
 }
 </script>
-
-  <script>
+<script>
     // Check if we are on GitHub/Cloudflare and NOT inside Google's servers
     if (window.location.hostname.indexOf('google') === -1 && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -6664,7 +6669,70 @@ function loadDocumentTrackerData(callback) {
           .catch(err => console.log('Service Worker registration failed:', err));
       });
     }
-  </script>
   
+// ================== PUSH NOTIFICATIONS ==================
+const VAPID_PUBLIC_KEY = "BA80hrz4_mv2vhfJE-di55PGW7q22pk0pGfSY8lKIEQAWSbhi7hlRRsoJPLxIHNU0__mXWIdq6L9d1Ob-QRyEMw"; // ⚠️ Replace with your actual public key
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function initPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    
+    const btn = document.getElementById('enablePushBtn');
+    if (!btn) return;
+    
+    if (subscription) {
+      btn.style.display = 'none'; // Already subscribed
+    } else {
+      btn.style.display = 'block'; // Show button
+      
+      // Remove old listeners to prevent duplicates
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+
+      newBtn.addEventListener('click', async () => {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alert('អ្នកបានបដិសេធការជូនដំណឹង។');
+          return;
+        }
+        
+        const newSub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+        
+        // Send to GAS backend to save
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res.success) {
+              newBtn.style.display = 'none';
+              alert('បានបើកការជូនដំណឹងដោយជោគជ័យ!');
+            } else {
+              alert('Error: ' + res.message);
+            }
+          })
+          .savePushSubscription(newSub, authToken);
+      });
+    }
+  } catch (e) {
+    console.log('Push init error:', e);
+  }
+}
+
+</script>
 </body>
 </html>

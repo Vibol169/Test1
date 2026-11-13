@@ -1,5 +1,5 @@
 // Change this version number (v1, v2, etc.) whenever you update your app files
-const CACHE_NAME = 'echo-demo-v23';
+const CACHE_NAME = 'echo-demo-v24';
 
 // These are the files the app needs to load instantly
 const ASSETS_TO_CACHE = [
@@ -15,6 +15,7 @@ const ASSETS_TO_CACHE = [
 
 // 1. INSTALL: Save the files to the device cache
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); 
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('Caching app shell');
@@ -27,6 +28,7 @@ self.addEventListener('install', (event) => {
 
 // 2. ACTIVATE: Clean up old caches if you update the CACHE_NAME version
 self.addEventListener('activate', (event) => {
+  self.clients.claim();
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(

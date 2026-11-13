@@ -1821,41 +1821,54 @@ function showPage(page) {
   } else if (page === 'list') {
     currentDetailId = null;
     currentDetailType = null;
-    if (loadingRequests || loadingRepairs || repairRequests.length === 0 || requestGroups.length === 0) {
-      loadRequestsInBackground(true);
-      loadRepairRequestsInBackground(true);
+    
+    // 1. If we have NO data at all, show the spinner and fetch
+    if (requestGroups.length === 0 && repairRequests.length === 0) {
       showLoadingIndicator();
+      syncAllData(true); 
     } else {
-      // 1. Instantly render the old data so the screen isn't blank
-  } else if (page === 'list') {
-    currentDetailId = null;
-    currentDetailType = null;
-    
-    // Only show loading spinner if we have NO data
-    if (requestGroups.length === 0 || repairRequests.length === 0) {
-      showLoadingIndicator();
+      // 2. We have data. Render it instantly (no flashing)
+      renderRequestsList();
+      
+      // 3. Center the active sub-tab smoothly
+      setTimeout(() => {
+        if (activeMainTab === 'partStatus') {
+          scrollActiveTabIntoView('partStatusSubTabBar', activePartStatusTab);
+          if (activePartStatusTab === 'Approved-by-Driver') {
+            scrollActiveTabIntoView('purchaseTypeSubTabBar', activePurchaseTypeFilter);
+          }
+        } else if (activeMainTab === 'repairStatus') {
+          scrollActiveTabIntoView('statusSubTabBar', activeRepairStatusTab);
+          scrollActiveTabIntoView('progressSubTabBar', activeRepairProgressTab);
+        }
+      }, 20);
+      
+      // 4. Restore scroll position
+      restoreListScrollPosition();
+
+      // 5. Trigger a SILENT background sync (won't interrupt UI)
+      syncAllData(true); 
     }
     
-    // Trigger the sync. If data is cached, it will render instantly without a flash.
-    syncAllData(true); 
+    // 6. Start the auto-sync timer for this page
     startRefreshTimer();
-  }
-    }
-    startRefreshTimer();
+    
   } else if (page === 'report') {
     currentDetailId = null;
     currentDetailType = null;
+    
     // If data hasn't been loaded yet, fetch it first
     if (requestGroups.length === 0 || repairRequests.length === 0) {
       showLoading('កំពុងផ្ទុកទិន្នន័យ...');
-      loadRequestsInBackground(true, true);   // skip render
-      loadRepairRequestsInBackground(true, true);
+      syncAllData(true); 
+      
+      // Wait slightly for data, then switch view
       setTimeout(() => {
         hideLoading();
-        switchReportView('part');              // load tracker data, then render
+        switchReportView('part');
       }, 800);
     } else {
-      switchReportView('part');                // data exists – just switch
+      switchReportView('part');
     }
   } else if (page === 'profile') {
     loadProfile();

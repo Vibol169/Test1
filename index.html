@@ -1827,26 +1827,19 @@ function showPage(page) {
       showLoadingIndicator();
     } else {
       // 1. Instantly render the old data so the screen isn't blank
-      renderRequestsList();
-      
-      // Center the active sub-tab
-      setTimeout(() => {
-        if (activeMainTab === 'partStatus') {
-          scrollActiveTabIntoView('partStatusSubTabBar', activePartStatusTab);
-          if (activePartStatusTab === 'Approved-by-Driver') {
-            scrollActiveTabIntoView('purchaseTypeSubTabBar', activePurchaseTypeFilter);
-          }
-        } else if (activeMainTab === 'repairStatus') {
-          scrollActiveTabIntoView('statusSubTabBar', activeRepairStatusTab);
-          scrollActiveTabIntoView('progressSubTabBar', activeRepairProgressTab);
-        }
-      }, 20);
-      
-      restoreListScrollPosition();
-
-      // 2. 🚨 FORCE A BACKGROUND SYNC right after rendering!
-      // This silently fetches new data and updates the screen 1 second later.
-      syncAllData(); 
+  } else if (page === 'list') {
+    currentDetailId = null;
+    currentDetailType = null;
+    
+    // Only show loading spinner if we have NO data
+    if (requestGroups.length === 0 || repairRequests.length === 0) {
+      showLoadingIndicator();
+    }
+    
+    // Trigger the sync. If data is cached, it will render instantly without a flash.
+    syncAllData(true); 
+    startRefreshTimer();
+  }
     }
     startRefreshTimer();
   } else if (page === 'report') {
@@ -1872,8 +1865,15 @@ function showPage(page) {
 let isSyncing = false;
 let lastSyncTime = 0;
 
-function syncAllData() {
+function syncAllData(force = false) {
   if (isSyncing || !authToken) return;
+  
+  // If it's a background sync and a modal is open, don't interrupt
+  const isModalOpen = isPartModalOpen || document.querySelector('.modal.show');
+  const isDetailView = currentDetailId !== null;
+  
+  if (!force && (isModalOpen || isDetailView)) return;
+
   isSyncing = true;
   lastSyncTime = Date.now();
 
@@ -1884,10 +1884,13 @@ function syncAllData() {
     if (!partsLoaded || !repairsLoaded) return; 
     isSyncing = false;
     
+    // If a modal opened WHILE syncing, don't re-render
+    if (document.querySelector('.modal.show') || currentDetailId !== null) return;
+
     let currentPage = $('#bottomNav a.active').data('page');
     if (currentPage === 'list') {
       let scrollY = window.scrollY;
-      renderRequestsList();
+      renderRequestsList(); // Silent re-render
       window.scrollTo(0, scrollY);
     } else if (currentPage === 'home') {
       renderHomeStats();
@@ -1897,7 +1900,6 @@ function syncAllData() {
   // Fetch Parts
   google.script.run
     .withSuccessHandler(res => {
-      // If backend returns null, keep the old data
       if (res !== null && Array.isArray(res)) requestGroups = res; 
       partsLoaded = true;
       tryRender();
@@ -2080,8 +2082,8 @@ function renderHomeStats() {
     <div class="container mt-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5>ទិដ្ឋភាពទូទៅ</h5>
-        <button class="btn btn-sm btn-outline-secondary" onclick="refreshHome()">
-          <i class="bi bi-arrow-repeat"></i> ធ្វើឱ្យថ្មី
+        <button class="btn btn-sm btn-outline-secondary" onclick="manualSync()">
+         <i class="bi bi-arrow-repeat"></i> ធ្វើសមកាលកម្ម (Sync)
         </button>
       </div>
       ${repairHtml}
@@ -2108,11 +2110,17 @@ window.goToListWithStatus = function(type, status) {
   showPage('list');
 };
 
-function refreshHome() {
-  showLoading('កំពុងធ្វើឱ្យថ្មី...');
-  loadRequestsInBackground(true);
-  loadRepairRequestsInBackground(true);
-  setTimeout(() => hideLoading(), 1000);
+function manualSync() {
+  // Show a tiny toast so the user knows it's working
+  showAlert('កំពុងធ្វើសមកាលកម្ម...', 'info');
+  
+  // Force sync
+  syncAllData(true);
+  
+  // Hide the loading toast after 1 second
+  setTimeout(() => {
+    $('.alert').alert('close');
+  }, 1000);
 }
 
 function loadNewRequest() {
@@ -2368,7 +2376,7 @@ function renderRequestsList() {
         <button class="btn btn-sm btn-outline-secondary me-2" onclick="toggleSortOrder()" title="${sortTooltip}">
           <i class="bi ${sortIcon}"></i> ${sortOrder === 'desc' ? 'ថ្មីមុន' : 'ចាស់មុន'}
         </button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="refreshList()"><i class="bi bi-arrow-repeat"></i> ធ្វើឱ្យថ្មី</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="manualSync()"><i class="bi bi-arrow-repeat"></i> ធ្វើសមកាលកម្ម (Sync)</button>
       </div>
     </div>
     <div class="toggle-filter" onclick="toggleFilter()">
@@ -2418,12 +2426,7 @@ function scrollActiveTabIntoView(barId, activeValue) {
   });
 }
 
-function refreshList() {
-  showLoading('កំពុងធ្វើឱ្យថ្មី...');
-  loadRequestsInBackground(true);
-  loadRepairRequestsInBackground(true);
-  setTimeout(() => hideLoading(), 1000);
-}
+
 function toggleSortOrder() {
   sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
   renderRequestsList();
@@ -3196,15 +3199,13 @@ function updateRepairProgressDropdown(repairId) {
 
   // Background server call
   google.script.run
-    .withSuccessHandler(() => {
-      // Refresh repair data silently
-      loadRepairRequestsInBackground(true, true);
-
-      // If progress was set to Repaired, navigate to list after data is updated
+      .withSuccessHandler(() => {
+      // Silently sync in background
+      syncAllData(true);
+      
       if (newProgress === 'Repaired') {
-        // Small delay to ensure data is stored in repairRequests
-        setTimeout(() => {
-          showPage('list');
+        setTimeout(() => { 
+          showPage('list'); 
         }, 500);
       }
     })
